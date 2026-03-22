@@ -78,12 +78,39 @@ async function main() {
     const iframe = document.createElement('iframe');
     iframe.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:none;background:#fff;';
     iframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups allow-modals allow-same-origin');
+    iframe.addEventListener('load', () => syncIframeMeta(iframe));
     iframe.src = browser.runtime.getURL(`/arc-pwa/${sessionId}/`);
     document.body.appendChild(iframe);
 
   } catch (err: unknown) {
     showError(err instanceof Error ? err.message : String(err));
   }
+}
+
+function syncIframeMeta(iframe: HTMLIFrameElement) {
+  const doc = iframe.contentDocument;
+  if (!doc?.head) return;
+
+  function applyTitle() {
+    const t = doc!.title;
+    if (t) document.title = t;
+  }
+  function applyFavicon() {
+    const src = doc!.querySelector<HTMLLinkElement>('link[rel~="icon"]')?.href;
+    if (!src) return;
+    let own = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+    if (!own) {
+      own = document.createElement('link');
+      own.rel = 'icon';
+      document.head.appendChild(own);
+    }
+    if (own.href !== src) own.href = src;
+  }
+
+  applyTitle();
+  applyFavicon();
+  new MutationObserver(() => { applyTitle(); applyFavicon(); })
+    .observe(doc.head, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['href', 'rel'] });
 }
 
 function setStatus(msg: string) {
