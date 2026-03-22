@@ -12,7 +12,7 @@ export default defineConfig({
     name: 'ArcPWA Viewer',
     description: 'Open .pwa.zip archives directly in the browser',
     version: '0.0.1',
-    permissions: ['declarativeNetRequest', 'storage', 'downloads', 'debugger'],
+    permissions: ['declarativeNetRequest', 'storage', 'downloads'],
     host_permissions: ['<all_urls>'],
   },
 });

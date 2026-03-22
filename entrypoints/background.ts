@@ -42,6 +42,10 @@ function resolveFile(files: Map<string, Uint8Array>, raw: string): string | null
   return files.has('/index.html') ? '/index.html' : null;
 }
 
+function base64ToU8(b64: string): Uint8Array {
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+
 // ── Session storage ───────────────────────────────────────────────────────────
 const sessions = new Map<string, Map<string, Uint8Array>>();
 
@@ -65,40 +69,44 @@ export default defineBackground(() => {
 // ── Fetch handler ─────────────────────────────────────────────────────────────
 function handleFetch(event: any) {
   const url = new URL(event.request.url);
-  console.log('[arc-pwa] fetch', url.pathname);
   const m = url.pathname.match(/^\/arc-pwa\/([^/]+)(\/.*)?$/);
   if (!m) return;
+  console.log('[arc-pwa] fetch', url.pathname);
   event.respondWith(serveFile(m[1], m[2] || '/'));
 }
 
 async function serveFile(sessionId: string, filePath: string): Promise<Response> {
-  console.log('[arc-pwa] serveFile', sessionId, filePath);
   const session = sessions.get(sessionId);
-  if (!session) return new Response('Arc-PWA session not found — reload the viewer.', { status: 404, headers: { 'Content-Type': 'text/plain' } });
+  if (!session) return new Response(
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Session expired</title>
+    <style>body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9f9f9}
+    .box{text-align:center;max-width:360px;padding:2rem;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+    h2{margin:0 0 .5rem;color:#c0392b}p{color:#555;line-height:1.5;margin:.5rem 0}</style></head>
+    <body><div class="box"><h2>Session expired</h2>
+    <p>The extension was updated or restarted and the archive was unloaded from memory.</p>
+    <p>Please close this tab and open the archive again.</p></div></body></html>`,
+    { status: 410, headers: { 'Content-Type': 'text/html' } },
+  );
   const resolved = resolveFile(session, filePath);
   if (!resolved) return new Response(`Not found: ${filePath}`, { status: 404, headers: { 'Content-Type': 'text/plain' } });
-  const data = session.get(resolved)!;
-  const mime = mimeOf(resolved);
-  console.log('[arc-pwa] →', resolved, data ? data.byteLength + ' bytes' : 'UNDEFINED', mime);
-  if (data && data.byteLength > 0 && mime.startsWith('text/')) {
-    console.log('[arc-pwa] preview:', JSON.stringify(new TextDecoder().decode(data.slice(0, 80))));
-  }
-  return new Response(data, { status: 200, headers: { 'Content-Type': mime } });
+  return new Response(session.get(resolved)!, { status: 200, headers: { 'Content-Type': mimeOf(resolved) } });
 }
 
 // ── Message handler ───────────────────────────────────────────────────────────
 function handleMessage(message: unknown, _sender: browser.runtime.MessageSender, sendResponse: (r: unknown) => void): boolean {
   const msg = message as Record<string, unknown>;
 
+  if (msg.type === 'unregisterSession') {
+    sessions.delete(msg.sessionId as string);
+    sendResponse({ ok: true });
+    return true;
+  }
+
   if (msg.type === 'registerSession') {
     const sessionId = msg.sessionId as string;
-    const entries = msg.files as Array<[string, number[]]>;
+    const entries = msg.files as Array<[string, string]>;
     const map = new Map<string, Uint8Array>();
-    for (const [path, arr] of entries) {
-      const u8 = new Uint8Array(arr);
-      console.log('[arc-pwa] file', path, u8.byteLength, 'bytes');
-      map.set(path, u8);
-    }
+    for (const [path, b64] of entries) map.set(path, base64ToU8(b64));
     sessions.set(sessionId, map);
     console.log('[arc-pwa] registered session', sessionId, 'files:', map.size);
     sendResponse({ ok: true });

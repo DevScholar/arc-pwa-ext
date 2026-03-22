@@ -10,6 +10,22 @@
  */
 import { unzip } from 'fflate';
 
+function u8ToBase64(u8: Uint8Array): string {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < u8.length; i += chunk)
+    binary += String.fromCharCode(...u8.subarray(i, i + chunk));
+  return btoa(binary);
+}
+function base64ToU8(b64: string): Uint8Array {
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+
+let activeSessionId: string | null = null;
+window.addEventListener('beforeunload', () => {
+  if (activeSessionId) browser.runtime.sendMessage({ type: 'unregisterSession', sessionId: activeSessionId });
+});
+
 async function main() {
   const params = new URLSearchParams(location.search);
   const src     = params.get('src');
@@ -27,11 +43,11 @@ async function main() {
     } else if (localId) {
       setStatus('Reading file…');
       const key = `arc_pwa_${localId}`;
-      const store = await browser.storage.session.get(key) as Record<string, number[]>;
-      const arr = store[key];
-      if (!arr) throw new Error('File data expired. Please try opening the file again.');
+      const store = await browser.storage.session.get(key) as Record<string, string>;
+      const b64 = store[key];
+      if (!b64) throw new Error('File data expired. Please try opening the file again.');
       await browser.storage.session.remove(key);
-      zipData = new Uint8Array(arr);
+      zipData = base64ToU8(b64);
     } else {
       throw new Error('No archive specified.\nUse the extension popup or navigate to a .pwa.zip URL.');
     }
@@ -42,14 +58,15 @@ async function main() {
       unzip(zipData!, (err, data) => (err ? reject(err) : resolve(data)));
     });
 
-    const files: Array<[string, number[]]> = [];
+    const files: Array<[string, string]> = [];
     for (const [p, data] of Object.entries(raw)) {
-      if (!p.endsWith('/')) files.push(['/' + p.replace(/^\/+/, ''), Array.from(data)]);
+      if (!p.endsWith('/')) files.push(['/' + p.replace(/^\/+/, ''), u8ToBase64(data)]);
     }
 
     // 3. Register session with background SW
     setStatus('Starting…');
     const sessionId = crypto.randomUUID();
+    activeSessionId = sessionId;
     const resp = await browser.runtime.sendMessage({ type: 'registerSession', sessionId, files });
     console.log('[arc-pwa viewer] registerSession response:', resp);
 
@@ -78,7 +95,7 @@ function hideOverlay() { document.getElementById('overlay')!.setAttribute('hidde
 function showError(msg: string) {
   const el = document.getElementById('overlay')!;
   el.removeAttribute('hidden'); el.className = 'error';
-  el.innerHTML = msg.replace(/\n/g, '<br>');
+  el.textContent = msg;
 }
 
 main();

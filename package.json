@@ -4,12 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "prepare": "node scripts/copy-sw.js",
-    "dev": "node scripts/copy-sw.js && wxt",
-    "dev:firefox": "node scripts/copy-sw.js && wxt --browser firefox",
-    "build": "node scripts/copy-sw.js && wxt build",
-    "build:firefox": "node scripts/copy-sw.js && wxt build --browser firefox",
-    "zip": "node scripts/copy-sw.js && wxt zip",
+    "dev": "wxt",
+    "dev:firefox": "wxt --browser firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build --browser firefox",
+    "zip": "wxt zip",
     "typecheck": "wxt prepare && tsc --noEmit",
     "postinstall": "wxt prepare"
   },

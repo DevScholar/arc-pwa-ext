@@ -1,3 +1,11 @@
+function u8ToBase64(u8: Uint8Array): string {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < u8.length; i += chunk)
+    binary += String.fromCharCode(...u8.subarray(i, i + chunk));
+  return btoa(binary);
+}
+
 const urlInput = document.getElementById('url-input') as HTMLInputElement;
 const openUrlBtn = document.getElementById('open-url-btn') as HTMLButtonElement;
 const dropZone = document.getElementById('drop-zone') as HTMLDivElement;
@@ -8,12 +16,20 @@ function openUrl(raw: string) {
   let url = raw.trim();
   if (!url) return;
   if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  if (!url.split('?')[0].toLowerCase().endsWith('.zip')) {
+    setStatus('URL must point to a .pwa.zip file.', true);
+    return;
+  }
   const viewerUrl = browser.runtime.getURL('/viewer.html') + '?src=' + encodeURIComponent(url);
   browser.tabs.create({ url: viewerUrl });
   window.close();
 }
 
 async function openFile(file: File) {
+  if (!file.name.toLowerCase().endsWith('.zip')) {
+    setStatus('Please select a .pwa.zip file.', true);
+    return;
+  }
   setStatus('Reading file…');
   openUrlBtn.disabled = true;
   try {
@@ -21,7 +37,7 @@ async function openFile(file: File) {
     const id = crypto.randomUUID();
     // Store in session storage — accessible to the viewer tab (same extension origin)
     await browser.storage.session.set({
-      [`arc_pwa_${id}`]: Array.from(new Uint8Array(buffer)),
+      [`arc_pwa_${id}`]: u8ToBase64(new Uint8Array(buffer)),
     });
     const viewerUrl = browser.runtime.getURL('/viewer.html') + '?local=' + id;
     browser.tabs.create({ url: viewerUrl });
