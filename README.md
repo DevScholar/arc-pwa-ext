@@ -1,6 +1,6 @@
 # ArcPWA Extension
 
-⚠️ This project is inAlpha stage. Expect breaking changes.
+⚠️ This project is in Alpha stage. Expect breaking changes.
 
 Browser extension for opening `.pwa.zip` archives directly in the browser.
 
