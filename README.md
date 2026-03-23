@@ -1,8 +1,8 @@
 # ArcPWA Extension
 
-⚠️ This project is in Pre-Alpha stage. Expect breaking changes.
+⚠️ This project is inAlpha stage. Expect breaking changes.
 
-Browser extension for opening `.pwa.zip` archives directly in the browser, powered by [@devscholar/arc-pwa](https://github.com/DevScholar/arc-pwa/).
+Browser extension for opening `.pwa.zip` archives directly in the browser.
 
 Built with [WXT](https://wxt.dev) · MV3 · Chrome / Edge / Firefox
 
